@@ -1,0 +1,451 @@
+<title>When clean power beats fossil fuels in California</title>
+<style>
+  :root {
+    --bg: #ebebe9;
+    --ink: #1c1c1a;
+    --ink-soft: #4a4a46;
+    --red: #bd5e42;
+    --mid: #f4f3f1;
+    --green: #4e805d;
+    --teal: #006973;
+    --missing: #c9c7c2;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 32px 28px;
+  }
+  .accent-rule {
+    width: 56px;
+    height: 8px;
+    background: var(--teal);
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 2.4rem;
+    font-weight: 400;
+    margin: 0 0 8px;
+    line-height: 1.15;
+  }
+  .subtitle {
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    margin: 0 0 6px;
+  }
+  .meta-line {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin: 0 0 26px;
+  }
+  .year-label {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin: 0 0 10px;
+  }
+  .chart-area {
+    position: relative;
+  }
+  canvas#chart {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .through-label {
+    position: absolute;
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    line-height: 1.3;
+    pointer-events: none;
+  }
+  .month-axis {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    display: flex;
+    margin-top: 4px;
+  }
+  .month-axis span {
+    flex: 1;
+    text-align: left;
+  }
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 34px;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+  }
+  .win-share h3, .legend h3 {
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+  .win-share-list {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+  .win-share-list b { font-weight: 700; }
+  .legend { min-width: 260px; }
+  .legend-bar {
+    width: 260px;
+    height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--red), var(--mid), var(--green));
+  }
+  .legend-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-top: 3px;
+    width: 260px;
+  }
+  .legend-ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    margin-top: 2px;
+    width: 260px;
+  }
+  .legend-ends .lo { color: var(--red); }
+  .legend-ends .hi { color: var(--green); }
+  .source-line {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+    margin-top: 24px;
+    line-height: 1.5;
+  }
+  .credit-line {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .status-box {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    background: #fff;
+    border: 1px solid #d8d6d1;
+    border-radius: 6px;
+    padding: 18px 20px;
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 640px;
+  }
+  .status-box.error { border-color: var(--red); }
+  .status-box code {
+    background: #f1f0ec;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+</style>
+
+<div class="wrap">
+  <div class="accent-rule"></div>
+  <h1>When clean power beats fossil fuels in California</h1>
+  <p class="subtitle">Daily margin between low emitting and fossil generation in the CAISO grid, by day of year</p>
+  <p class="meta-line" id="meta-line">GWh per day; green = low emitting (nuclear, wind, solar, hydro, geothermal) exceeds fossil (gas, coal, petroleum); color = daily margin</p>
+
+  <div id="content">
+    <div class="status-box" id="status-box">Loading data&hellip;</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var RAW_URL = "https://raw.githubusercontent.com/SDGIS/caiso-clean-power-margin/main/data/caiso-daily.json";
+  var LOCAL_FALLBACK_URL = "../data/caiso-daily.json";
+
+  var COLOR_RED = [189, 94, 66];
+  var COLOR_MID = [244, 243, 241];
+  var COLOR_GREEN = [78, 128, 93];
+  var CLAMP = 350;
+
+  // Fixed leap-year day-of-year table so month gridlines line up identically
+  // across leap and non-leap years (2024 is a leap year; see brief section 7).
+  var CUM_DAYS_LEAP = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+  var MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var TOTAL_COLS = 366;
+
+  function dayOfYear366(dateStr) {
+    var parts = dateStr.split("-");
+    var month = parseInt(parts[1], 10);
+    var day = parseInt(parts[2], 10);
+    return CUM_DAYS_LEAP[month - 1] + day; // 1..366
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function marginColor(margin) {
+    var t = Math.max(-1, Math.min(1, margin / CLAMP));
+    var from, to, tt;
+    if (t < 0) { from = COLOR_RED; to = COLOR_MID; tt = t + 1; }
+    else { from = COLOR_MID; to = COLOR_GREEN; tt = t; }
+    var r = Math.round(lerp(from[0], to[0], tt));
+    var g = Math.round(lerp(from[1], to[1], tt));
+    var b = Math.round(lerp(from[2], to[2], tt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  function loadData() {
+    var injected = document.getElementById("caiso-data-json");
+    if (injected) {
+      try {
+        return Promise.resolve(JSON.parse(injected.textContent));
+      } catch (e) {
+        return Promise.reject(new Error("Injected data block could not be parsed: " + e.message));
+      }
+    }
+    return fetch(RAW_URL)
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("HTTP " + resp.status + " from raw.githubusercontent.com");
+        return resp.json();
+      })
+      .catch(function (err) {
+        return fetch(LOCAL_FALLBACK_URL)
+          .then(function (resp) {
+            if (!resp.ok) throw new Error("HTTP " + resp.status + " from local fallback");
+            return resp.json();
+          })
+          .catch(function () {
+            throw err; // report the original (primary path) error
+          });
+      });
+  }
+
+  function showError(err) {
+    var box = document.getElementById("status-box");
+    box.className = "status-box error";
+    box.innerHTML =
+      "<strong>Data not loaded.</strong><br>" +
+      "Could not reach the committed data file.<br>" +
+      "<code>" + (err && err.message ? err.message : String(err)) + "</code><br><br>" +
+      "This page needs either a network fetch of " +
+      "<code>" + RAW_URL + "</code> to succeed, or an injected " +
+      "<code>&lt;script type=\"application/json\" id=\"caiso-data-json\"&gt;</code> block. " +
+      "No sample or synthetic data will be shown in its place.";
+  }
+
+  function computeWinShare(days) {
+    var byYear = {};
+    days.forEach(function (d) {
+      var y = d.date.slice(0, 4);
+      if (!byYear[y]) byYear[y] = { total: 0, wins: 0 };
+      byYear[y].total++;
+      if (d.low > d.fossil) byYear[y].wins++;
+    });
+    var years = Object.keys(byYear).sort();
+    return years.map(function (y) {
+      var v = byYear[y];
+      return { year: y, pct: Math.round((100 * v.wins) / v.total) };
+    });
+  }
+
+  function render(payload) {
+    var days = payload.days || [];
+    if (!days.length) {
+      showError(new Error("Data file loaded but contains zero days."));
+      return;
+    }
+
+    var byYear = {};
+    days.forEach(function (d) {
+      var y = d.date.slice(0, 4);
+      if (!byYear[y]) byYear[y] = {};
+      byYear[y][d.date] = d;
+    });
+    var years = Object.keys(byYear).sort();
+    var lastYear = years[years.length - 1];
+    var lastYearDates = Object.keys(byYear[lastYear]).sort();
+    var lastDate = days[days.length - 1].date;
+    var isLastYearPartial = lastYearDates.length < (isLeap(parseInt(lastYear, 10)) ? 366 : 365);
+
+    document.getElementById("meta-line").textContent =
+      (payload.excluded_fuel_codes && payload.excluded_fuel_codes.length
+        ? "GWh per day; green = low emitting (nuclear, wind, solar, hydro, geothermal) exceeds fossil (gas, coal, petroleum); color = daily margin; excludes " + payload.excluded_fuel_codes.join(", ")
+        : "GWh per day; green = low emitting (nuclear, wind, solar, hydro, geothermal) exceeds fossil (gas, coal, petroleum); color = daily margin");
+
+    var content = document.getElementById("content");
+    content.innerHTML =
+      '<div class="year-label">Year of operation</div>' +
+      '<div class="chart-area" id="chart-area"><canvas id="chart"></canvas></div>' +
+      '<div class="month-axis" id="month-axis"></div>' +
+      '<div class="footer-row">' +
+        '<div class="win-share"><h3>Share of days low emitting wins</h3><div class="win-share-list" id="win-share-list"></div></div>' +
+        '<div class="legend"><h3>Daily margin (GWh, low emitting &minus; fossil)</h3>' +
+          '<div class="legend-bar"></div>' +
+          '<div class="legend-scale"><span>&minus;350</span><span>0</span><span>+350</span></div>' +
+          '<div class="legend-ends"><span class="lo">Fossil higher</span><span class="hi">Clean higher</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="source-line" id="source-line"></div>' +
+      '<div class="credit-line">Chart design by John Bistline, reproduced here for personal use with the byline changed accordingly; original: a stripe-heatmap chart of CAISO clean-vs-fossil daily margin.</div>';
+
+    var winList = document.getElementById("win-share-list");
+    computeWinShare(days).forEach(function (w) {
+      var span = document.createElement("span");
+      span.innerHTML = w.year + ": <b>" + w.pct + "%</b>";
+      winList.appendChild(span);
+    });
+
+    document.getElementById("source-line").textContent =
+      "Source: " + payload.source + ", CAISO net generation by fuel type, hourly, aggregated to CAISO local days. " +
+      "n = " + days.length + " days, " + days[0].date + " to " + lastDate + ". " +
+      (payload.excluded_fuel_codes && payload.excluded_fuel_codes.length
+        ? "Excluded: " + payload.excluded_fuel_codes.join(", ") + " and battery storage."
+        : "Battery storage excluded.");
+
+    drawChart(years, byYear, lastYear, lastYearDates, lastDate, isLastYearPartial);
+    drawMonthAxis();
+  }
+
+  function isLeap(y) {
+    return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  }
+
+  function drawMonthAxis() {
+    var axis = document.getElementById("month-axis");
+    axis.innerHTML = "";
+    MONTH_NAMES.forEach(function (m) {
+      var span = document.createElement("span");
+      span.textContent = m;
+      axis.appendChild(span);
+    });
+  }
+
+  function drawChart(years, byYear, lastYear, lastYearDates, lastDate, isLastYearPartial) {
+    var canvas = document.getElementById("chart");
+    var area = document.getElementById("chart-area");
+    var cssWidth = area.clientWidth;
+    var rowHeight = 58;
+    var rowGap = 6;
+    var labelWidth = 60;
+    var gridWidth = cssWidth - labelWidth;
+    var cssHeight = years.length * (rowHeight + rowGap) - rowGap;
+    var dpr = window.devicePixelRatio || 1;
+
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+    canvas.style.width = cssWidth + "px";
+    canvas.style.height = cssHeight + "px";
+
+    var ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.textBaseline = "middle";
+    ctx.font = "600 15px Georgia, serif";
+    ctx.fillStyle = "#1c1c1a";
+
+    var colWidth = gridWidth / TOTAL_COLS;
+    var lastYearNum = parseInt(lastYear, 10);
+    var lastCol = isLastYearPartial ? dayOfYear366(lastDate) : TOTAL_COLS;
+
+    years.forEach(function (y, rowIdx) {
+      var rowY = rowIdx * (rowHeight + rowGap);
+      ctx.fillStyle = "#1c1c1a";
+      ctx.textAlign = "left";
+      ctx.fillText(y, 0, rowY + rowHeight / 2);
+
+      var yearNum = parseInt(y, 10);
+      var daysInYear = isLeap(yearNum) ? 366 : 365;
+      var yearDays = byYear[y];
+
+      for (var col = 1; col <= TOTAL_COLS; col++) {
+        var x = labelWidth + (col - 1) * colWidth;
+
+        if (y === lastYear && col > lastCol) {
+          continue; // blank remainder of an in-progress year
+        }
+        if (!isLeap(yearNum) && col === 60) {
+          continue; // no Feb 29 slot this year
+        }
+
+        var dateStr = colToDate(yearNum, col);
+        var entry = yearDays[dateStr];
+
+        if (entry) {
+          var margin = entry.low - entry.fossil;
+          ctx.fillStyle = marginColor(margin);
+        } else {
+          ctx.fillStyle = "#c9c7c2"; // true data gap, distinguishable from blank future
+        }
+        ctx.fillRect(x, rowY, Math.ceil(colWidth) + 0.5, rowHeight);
+      }
+    });
+
+    // "Through <date>" leader + label for an in-progress final year
+    var throughEl = document.querySelectorAll(".through-label");
+    throughEl.forEach(function (el) { el.remove(); });
+    if (isLastYearPartial) {
+      var rowIdx = years.length - 1;
+      var rowY = rowIdx * (rowHeight + rowGap);
+      var x = labelWidth + lastCol * colWidth;
+      ctx.strokeStyle = "#1c1c1a";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, rowY + rowHeight * 0.3);
+      ctx.lineTo(x + 30, rowY - 14);
+      ctx.stroke();
+
+      var label = document.createElement("div");
+      label.className = "through-label";
+      label.style.left = (x + 32) + "px";
+      label.style.top = (rowY - 34) + "px";
+      label.innerHTML = "Through<br>" + formatDate(lastDate);
+      area.appendChild(label);
+    }
+  }
+
+  function colToDate(year, col) {
+    // Inverse of dayOfYear366: uses the same fixed leap-year cumulative
+    // table in both directions, so it does NOT adjust for actual leap-ness.
+    // Column 60 (Feb 29) is simply never asked for in a non-leap year --
+    // drawChart skips it before calling this.
+    for (var m = 11; m >= 0; m--) {
+      var base = CUM_DAYS_LEAP[m];
+      if (col > base) {
+        var day = col - base;
+        var mm = String(m + 1).padStart(2, "0");
+        var dd = String(day).padStart(2, "0");
+        return year + "-" + mm + "-" + dd;
+      }
+    }
+    return year + "-01-01";
+  }
+
+  function formatDate(dateStr) {
+    var parts = dateStr.split("-");
+    var d = new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return months[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear();
+  }
+
+  loadData().then(render).catch(showError);
+
+  window.addEventListener("resize", function () {
+    var box = document.getElementById("chart-area");
+    if (box && window.__lastPayload) render(window.__lastPayload);
+  });
+})();
+</script>
