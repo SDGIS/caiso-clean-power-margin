@@ -1,10 +1,10 @@
 {
-  "generated_utc": "2026-08-31T19:27:18Z",
+  "generated_utc": "2026-09-07T18:10:58Z",
   "source": "EIA Hourly Electric Grid Monitor (Form EIA-930)",
   "excluded_fuel_codes": [
     "OTH"
   ],
-  "through_date": "2026-08-30",
+  "through_date": "2026-09-06",
   "days": [
     {
       "date": "2021-01-01",
@@ -10345,6 +10345,41 @@
       "date": "2026-08-30",
       "low": 369.8,
       "fossil": 164.4
+    },
+    {
+      "date": "2026-08-31",
+      "low": 398.0,
+      "fossil": 185.7
+    },
+    {
+      "date": "2026-09-01",
+      "low": 380.5,
+      "fossil": 128.8
+    },
+    {
+      "date": "2026-09-02",
+      "low": 390.8,
+      "fossil": 97.0
+    },
+    {
+      "date": "2026-09-03",
+      "low": 407.2,
+      "fossil": 87.7
+    },
+    {
+      "date": "2026-09-04",
+      "low": 390.2,
+      "fossil": 106.7
+    },
+    {
+      "date": "2026-09-05",
+      "low": 330.9,
+      "fossil": 114.4
+    },
+    {
+      "date": "2026-09-06",
+      "low": 260.2,
+      "fossil": 159.4
     }
   ]
 }
